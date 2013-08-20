@@ -3,25 +3,25 @@ import System.Cmd
 import Data.Char
 
 data Board = Board [[Char]] 
-data BoardSize = 20::Int
+data Location = Location (Int, Int)
+
+boardSize = 20
     
 instance Show Board where
     show (Board x) = unlines x
 
 type Size = Int
 
-
 main = do
     system "clear"
-    let board = createBoard BoardSize
+    let board = createBoard boardSize (Location (5,10)) 0 []
     putStr $ show board
 
 
-
 --Creates a Board
-createBoard :: Size -> Board
-createBoard size  = Board $ take size . repeat . take (size * 2) $ repeat '*'
+createBoard :: Size -> Location -> Int -> [[Char]] ->  Board
+createBoard size (Location (x,y)) row b | row == y     =  createBoard size (Location (x,y)) (row + 1) (map filter [1..(size*2)] : b)
+                                        | row == size  = Board (b)
+                                        | otherwise    = createBoard size (Location (x,y)) (row + 1) (replicate (size*2) '*' : b)
+                                  where filter = (\z -> if z == x then '@' else '*')
 
---Set the Player Location
-setPlayerLocation :: Int -> Int -> Board -> Board
-setPlayerLocation x y oldBoard |
