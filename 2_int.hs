@@ -5,17 +5,16 @@ import Data.Char
 data Board = Board [[Char]] 
 data Location = Location (Int, Int)
 
-boardSize = 30
-
 instance Show Board where
     show (Board x) = unlines x
 
-type Size = Int
+height = 40
+width = height * 3
 
 main = do
     hSetBuffering stdin NoBuffering
     let originalLocation = Location (0,0)
-    let originalBoard = createBoard boardSize originalLocation 0 []
+    let originalBoard = createBoard height originalLocation 0 []
     boardLoop originalBoard originalLocation
 
 --Main Loop where board is redrawn and player movement is processed
@@ -25,25 +24,26 @@ boardLoop board location = do
     putStr $ show board
     move <- getChar
     let newLocation = updateLocation move location
-    let newBoard = createBoard boardSize newLocation 0 []
+    let newBoard = createBoard height newLocation 0 []
     boardLoop newBoard newLocation 
 
 --Creates a Board
-createBoard :: Size -> Location -> Int -> [[Char]] ->  Board
-createBoard size (Location (x,y)) row b 
-    | row == y     =  createBoard size location nxtRow $ playerRow : b
-    | row == size  = Board b
-    | otherwise    = createBoard size location nxtRow $ normalRow : b
-  where playerRow = map (\z -> if z == x then '@' else '.') [0..(width-1)]
-        normalRow = replicate width '.' 
-        nxtRow = row + 1
-        width = size * 3
-        location = Location (x,y)
+createBoard :: Int -> Location -> Int -> [[Char]] ->  Board
+createBoard height (Location (x,y)) row b 
+    | row == y           = createBoard height location nxtRow $ playerRow : b
+    | row == height + 1  = Board b
+    | otherwise          = createBoard height location nxtRow $ normalRow : b
+  where
+     playerRow = map (\z -> if z == x then '@' else '.') [0..width]
+     normalRow = replicate (width + 1) '.' 
+     nxtRow = row + 1
+     location = Location (x,y)
 
 --Update Location
 updateLocation :: Char -> Location -> Location
-updateLocation m (Location (x,y)) | m == 'w'  = Location (x, (y+1))
-                                  | m == 's'  = Location (x, (y-1))
-                                  | m == 'a'  = Location ((x-1), y)
-                                  | m == 'd'  = Location ((x+1), y)
-                                  | otherwise = Location (x,y)
+updateLocation m (Location (x,y)) 
+    | m == 'w' && y /= height = Location (x, (y+1))
+    | m == 's' && y /= 0      = Location (x, (y-1))
+    | m == 'a' && x /= 0      = Location ((x-1), y)      
+    | m == 'd' && x /= width  = Location ((x+1), y)
+    | otherwise = Location (x,y)
