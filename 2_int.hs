@@ -1,49 +1,53 @@
 import System.IO
 import System.Cmd
 import Data.Char
+import Control.Monad.ST
+import Data.Array.ST
+import Data.Array.Unboxed
 
-data Board = Board [[Char]] 
-data Location = Location (Int, Int)
-
-instance Show Board where
-    show (Board x) = unlines x
-
-height = 40
-width = height * 3
 
 main = do
     hSetBuffering stdin NoBuffering
-    let originalLocation = Location (0,0)
-    let originalBoard = createBoard height originalLocation 0 []
-    boardLoop originalBoard originalLocation
+    boardLoop (0,0)
 
 --Main Loop where board is redrawn and player movement is processed
-boardLoop :: Board -> Location -> IO()
-boardLoop board location = do
+boardLoop :: (Int, Int) -> IO()
+boardLoop location = do
     system "clear"
-    putStr $ show board
+    let board = editGrid location '!' $ buildGrid
+    print board
     move <- getChar
     let newLocation = updateLocation move location
-    let newBoard = createBoard height newLocation 0 []
-    boardLoop newBoard newLocation 
+    boardLoop newLocation 
 
---Creates a Board
-createBoard :: Int -> Location -> Int -> [[Char]] ->  Board
-createBoard height (Location (x,y)) row b 
-    | row == y           = createBoard height location nxtRow $ playerRow : b
-    | row == height + 1  = Board b
-    | otherwise          = createBoard height location nxtRow $ normalRow : b
-  where
-     playerRow = map (\z -> if z == x then '@' else '.') [0..width]
-     normalRow = replicate (width + 1) '.' 
-     nxtRow = row + 1
-     location = Location (x,y)
+getSymbol :: (Int, Int) -> Char
+getSymbol (x,y) 
+    | even x && even y = '+'
+    | even x && odd y  = '|'
+    | odd x && even y  = '-'
+    | odd x && odd y   = ' '
+
+--Make the maze here?
+buildGrid :: UArray (Int, Int) Char
+buildGrid = runSTUArray $ do 
+    let symbols = [c | y <- [0..10], x <- [0..10], let c = getSymbol (x,y)]
+    grid <- newListArray ((0,0), (10,10)) symbols
+    return grid
+
+editGrid :: (Int, Int) 
+         -> Char 
+         -> UArray (Int, Int) Char 
+         -> UArray (Int, Int) Char
+editGrid (x,y) c grid = runSTUArray $ do
+    stGrid <- thaw grid
+    writeArray stGrid (x,y) 'c'
+    return stGrid
 
 --Update Location
-updateLocation :: Char -> Location -> Location
-updateLocation m (Location (x,y)) 
-    | m == 'w' && y /= height = Location (x, (y+1))
-    | m == 's' && y /= 0      = Location (x, (y-1))
-    | m == 'a' && x /= 0      = Location ((x-1), y)      
-    | m == 'd' && x /= width  = Location ((x+1), y)
-    | otherwise = Location (x,y)
+updateLocation :: Char -> (Int, Int) -> (Int, Int)
+updateLocation m (x, y)
+    | m == 'w' && y /= 10     = (x, y+1)
+    | m == 's' && y /= 0      = (x, y-1)
+    | m == 'a' && x /= 0      = (x-1, y)      
+    | m == 'd' && x /= 10     = (x+1, y)
+    | otherwise = (x,y)
