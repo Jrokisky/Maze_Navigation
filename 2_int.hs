@@ -5,49 +5,69 @@ import Control.Monad.ST
 import Data.Array.ST
 import Data.Array.Unboxed
 
+height = 30
+width =  100
+type Grid = UArray (Int, Int) Char
 
 main = do
     hSetBuffering stdin NoBuffering
-    boardLoop (0,0)
+    gridLoop (0,0)
 
---Main Loop where board is redrawn and player movement is processed
-boardLoop :: (Int, Int) -> IO()
-boardLoop location = do
+-- | Grid drawn and player movement processed
+gridLoop :: (Int, Int) -> IO()
+gridLoop location = do
     system "clear"
-    let board = editGrid location '!' $ buildGrid
-    print board
+    let grid = editGrid location '@' $ buildGrid height width
+    putStrLn $ showGrid grid 
     move <- getChar
-    let newLocation = updateLocation move location
-    boardLoop newLocation 
+    let newLocation = updateLocation height width move location
+    gridLoop newLocation 
 
-getSymbol :: (Int, Int) -> Char
-getSymbol (x,y) 
-    | even x && even y = '+'
-    | even x && odd y  = '|'
-    | odd x && even y  = '-'
-    | odd x && odd y   = ' '
 
---Make the maze here?
-buildGrid :: UArray (Int, Int) Char
-buildGrid = runSTUArray $ do 
-    let symbols = [c | y <- [0..10], x <- [0..10], let c = getSymbol (x,y)]
-    grid <- newListArray ((0,0), (10,10)) symbols
+-- | Build a Grid
+buildGrid :: Int    --Height
+          -> Int    --Width 
+          -> Grid   --Grid 
+buildGrid h w = runSTUArray $ do 
+    let symbols = [c | y <- [0..h], x <- [0..w], let c = getSymbol (y,x)]
+    grid <- newListArray ((0,0), (h,w)) symbols
     return grid
 
-editGrid :: (Int, Int) 
-         -> Char 
-         -> UArray (Int, Int) Char 
-         -> UArray (Int, Int) Char
-editGrid (x,y) c grid = runSTUArray $ do
+-- | Edit the given Grid
+editGrid :: (Int, Int) --Cell to change
+         -> Char       --New value
+         -> Grid       --Old Grid
+         -> Grid       --New Grid
+editGrid (y,x) c grid = runSTUArray $ do
     stGrid <- thaw grid
-    writeArray stGrid (x,y) 'c'
+    writeArray stGrid (y,x) c
     return stGrid
 
---Update Location
-updateLocation :: Char -> (Int, Int) -> (Int, Int)
-updateLocation m (x, y)
-    | m == 'w' && y /= 10     = (x, y+1)
-    | m == 's' && y /= 0      = (x, y-1)
-    | m == 'a' && x /= 0      = (x-1, y)      
-    | m == 'd' && x /= 10     = (x+1, y)
-    | otherwise = (x,y)
+showGrid :: Grid -> [Char]
+showGrid arr = insertEvery 1 w "\n" $ elems arr
+    where w = 1 + (snd . snd . bounds $ arr)
+
+
+-- | Update Location of player
+updateLocation :: Int -> Int -> Char -> (Int, Int) -> (Int, Int)
+updateLocation h w m (y, x)
+    | m == 'w' && y /= 0     = (y-1, x)
+    | m == 's' && y /= h     = (y+1, x)
+    | m == 'a' && x /= 0     = (y, x-1)      
+    | m == 'd' && x /= w     = (y, x+1)
+    | otherwise = (y,x)
+
+-- | Insert string after 
+insertEvery :: Int -> Int -> [Char] -> [Char] -> [Char]
+insertEvery _ _ _ [x]     = [x]
+insertEvery cnt div ins (x:xs) 
+    | cnt == div = x : ins ++ (insertEvery 1 div ins xs)
+    | otherwise  = x : (insertEvery (cnt + 1) div ins xs)
+
+-- | Get the symbol for a cell
+getSymbol :: (Int, Int) -> Char
+getSymbol (y,x) 
+    | even y && even x = '+'
+    | even y && odd x  = '-'
+    | odd y && even x  = '|'
+    | odd y && odd x   = ' '
