@@ -5,6 +5,7 @@ import Control.Monad.ST
 import Data.Array.ST
 import Data.Array.Unboxed
 import Data.Maybe
+import System.Random (randomRIO)
 
 height = 30
 width =  100
@@ -13,12 +14,12 @@ type Grid = UArray (Int, Int) Char
 type Location = (Int, Int)
 data Cell = Cell { loc :: Location
                  , value :: Char
-                 }
+                 } deriving (Eq)
 
 main = do
     hSetBuffering stdin NoBuffering
     let grid = editGrid (1,1) '@' $ buildGrid height width
-    let maze = buildMaze grid $ getWalls (1,1) 
+    maze <- buildMaze grid $ getWalls (1,1) 
     gridLoop maze (1,1)
 
 -- | Grid drawn and player movement processed
@@ -46,15 +47,36 @@ buildGrid h w = runSTUArray $ do
 
 -- | Build a maze from a grid
 buildMaze :: Grid 
-          -> [Cell] --Wall List 
-          -> Grid
-buildMaze grid [] = grid
-buildMaze grid (x:xs) =
-    case unvisitedNeighbor x grid of
-      []   -> buildMaze grid xs
-      [uv] -> let grid2 = editGrid (loc x) ' ' grid
+          -> [Cell]  --list of walls
+          -> IO Grid
+buildMaze grid walls = 
+    case walls of
+      [wall]   -> do
+                  let (maze, _) = analyzeWall grid wall
+                  return maze
+      walls    -> do 
+                  (wall, newWalls) <- pick walls
+                  let (maze, additionalWalls) = analyzeWall grid wall
+                  buildMaze maze $ additionalWalls ++ newWalls
+
+pick :: [a] -> IO (a, [a])
+pick [x] = return (x, [])
+pick xs = do 
+      idx <- randomRIO (1, length xs -1)
+      let (front, back) = splitAt idx xs
+      print $ show idx
+      return (head . reverse $ front, (init front) ++ back)
+
+
+analyzeWall :: Grid
+            -> Cell
+            -> (Grid, [Cell])
+analyzeWall grid w =
+    case unvisitedNeighbor w grid of
+      []   -> (grid, [])
+      [uv] -> let grid2 = editGrid (loc w) ' ' grid
                   grid3 = editGrid (loc uv) ' ' grid2
-              in buildMaze grid3 (xs ++ (getWalls $ loc uv))
+              in (grid3, getWalls $ loc uv)
 
 -- | given a wall, get adjacent unvisited cells
 -- | (this is hack code. Should only ever return one neighbor) 
@@ -64,7 +86,7 @@ unvisitedNeighbor :: Cell    --wall
 unvisitedNeighbor (Cell (y,x) c) grid
     | isBorder (y,x) = []
     | c == '|' = filter (unvisited) $ (getCell grid (y, (x-1))) : (getCell grid (y, (x+1))) : [] 
-    | c == '-' = filter (unvisited) $ (getCell grid ((y-1), x)) : (getCell grid ((y+1), x)) : []
+    | c == '=' = filter (unvisited) $ (getCell grid ((y-1), x)) : (getCell grid ((y+1), x)) : []
     | otherwise = []
   where unvisited x = '#' == value x
         getCell g loc = Cell loc (grid ! loc)
@@ -74,8 +96,8 @@ unvisitedNeighbor (Cell (y,x) c) grid
 getWalls :: Location   
          -> [Cell] 
 getWalls (y,x) = 
-    let up    = if isBorder ((y-1),x) then [] else [(Cell ((y-1),x) '-')]
-        down  = if isBorder ((y+1),x) then [] else [(Cell ((y+1),x) '-')]
+    let up    = if isBorder ((y-1),x) then [] else [(Cell ((y-1),x) '=')]
+        down  = if isBorder ((y+1),x) then [] else [(Cell ((y+1),x) '=')]
         left  = if isBorder (y,(x-1)) then [] else [(Cell (y,(x-1)) '|')]
         right = if isBorder (y,(x+1)) then [] else [(Cell (y,(x+1)) '|')]
     in up ++ down ++ left ++ right
@@ -127,6 +149,6 @@ insertEvery cnt div ins (x:xs)
 getSymbol :: Location -> Char
 getSymbol (y,x) 
     | even y && even x = '+'
-    | even y && odd x  = '-'
+    | even y && odd x  = '='
     | odd y && even x  = '|'
     | odd y && odd x   = '#'
