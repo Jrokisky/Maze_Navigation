@@ -22,7 +22,7 @@ main = do
     maze <- buildMaze grid $ getWalls (1,1) 
     gridLoop maze (1,1)
 
--- | Grid drawn and player movement processed
+-- | Draw Maze. Process player movement.
 gridLoop :: Grid
          -> Location
          -> IO()
@@ -59,6 +59,7 @@ buildMaze grid walls =
                   let (maze, additionalWalls) = analyzeWall grid wall
                   buildMaze maze $ additionalWalls ++ newWalls
 
+-- | Pick random value from list. Return list sans value.
 pick :: [a] -> IO (a, [a])
 pick [x] = return (x, [])
 pick xs = do 
@@ -66,7 +67,7 @@ pick xs = do
       let (front, back) = splitAt idx xs
       return (head . reverse $ front, (init front) ++ back)
 
-
+-- | analyze Wall. Edit maze
 analyzeWall :: Grid
             -> Cell
             -> (Grid, [Cell])
@@ -77,7 +78,7 @@ analyzeWall grid w =
                   grid3 = editGrid (loc uv) ' ' grid2
               in (grid3, getWalls $ loc uv)
 
--- | given a wall, get adjacent unvisited cells
+-- | get adjacent unvisited cell of a wall
 -- | (this is hack code. Should only ever return one neighbor) 
 unvisitedNeighbor :: Cell    --wall
                  -> Grid
@@ -102,7 +103,7 @@ getWalls (y,x) =
     in up ++ down ++ left ++ right
 
 
--- | Checks if location is border
+-- | True if location is border
 isBorder :: Location  --to evaluate
          -> Bool
 isBorder (y,x) = y == 0 || y == height || x == 0 || x == width
@@ -137,6 +138,7 @@ updateLocation h w m (y, x) g
     | m == 'd' && x /= w  = if isMovable y (x+1) then (y, (x+1)) else (y,x)
     | otherwise = (y,x)
   where isMovable uY uX = any (== (g ! (uY, uX))) " ." 
+
 -- | Insert string after every 'div' characters
 insertEvery :: Int -> Int -> [Char] -> [Char] -> [Char]
 insertEvery _ _ _ [x]     = [x]
