@@ -31,7 +31,7 @@ gridLoop maze location = do
     putStrLn $ showGrid maze 
     move <- getChar
     let newLocation = updateLocation height width move location maze
-    let updatedMaze = editGrid location ' ' maze
+    let updatedMaze = editGrid location  '.' maze
     let finalMaze = editGrid newLocation '@' updatedMaze 
     gridLoop finalMaze newLocation 
 
@@ -64,7 +64,6 @@ pick [x] = return (x, [])
 pick xs = do 
       idx <- randomRIO (1, length xs -1)
       let (front, back) = splitAt idx xs
-      print $ show idx
       return (head . reverse $ front, (init front) ++ back)
 
 
@@ -132,12 +131,12 @@ updateLocation :: Int      --height
                -> Grid     --current grid
                -> Location
 updateLocation h w m (y, x) g
-    | m == 'w' && y /= 0  = if g ! (y-1, x) == ' ' then ((y-1), x) else (y,x)
-    | m == 's' && y /= h  = if g ! (y+1, x) == ' ' then ((y+1), x) else (y,x)
-    | m == 'a' && x /= 0  = if g ! (y, x-1) == ' ' then (y, (x-1)) else (y,x) 
-    | m == 'd' && x /= w  = if g ! (y, x+1) == ' ' then (y, (x+1)) else (y,x)
+    | m == 'w' && y /= 0  = if isMovable (y-1) x then ((y-1), x) else (y,x)
+    | m == 's' && y /= h  = if isMovable (y+1) x then ((y+1), x) else (y,x)
+    | m == 'a' && x /= 0  = if isMovable y (x-1) then (y, (x-1)) else (y,x) 
+    | m == 'd' && x /= w  = if isMovable y (x+1) then (y, (x+1)) else (y,x)
     | otherwise = (y,x)
-
+  where isMovable uY uX = any (== (g ! (uY, uX))) " ." 
 -- | Insert string after every 'div' characters
 insertEvery :: Int -> Int -> [Char] -> [Char] -> [Char]
 insertEvery _ _ _ [x]     = [x]
