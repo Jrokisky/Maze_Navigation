@@ -18,9 +18,10 @@ data Cell = Cell { loc :: Location
 
 main = do
     hSetBuffering stdin NoBuffering
-    let grid = editGrid (1,1) '@' $ buildGrid height width
+    let grid = editGrid (1,1) '&' $ buildGrid height width
     maze <- buildMaze grid $ getWalls (1,1) 
-    gridLoop maze (1,1)
+    let simpMaze = simplifyMaze maze
+    gridLoop simpMaze (1,1)
 
 -- | Draw Maze. Process player movement.
 gridLoop :: Grid
@@ -32,7 +33,7 @@ gridLoop maze location = do
     move <- getChar
     let newLocation = updateLocation height width move location maze
     let updatedMaze = editGrid location  '.' maze
-    let finalMaze = editGrid newLocation '@' updatedMaze 
+    let finalMaze = editGrid newLocation '&' updatedMaze 
     gridLoop finalMaze newLocation 
 
 
@@ -58,6 +59,40 @@ buildMaze grid walls =
                   (wall, newWalls) <- pick walls
                   let (maze, additionalWalls) = analyzeWall grid wall
                   buildMaze maze $ additionalWalls ++ newWalls
+
+-- | Remove unnecessary joints '@'
+simplifyMaze :: Grid
+             -> Grid
+simplifyMaze maze = 
+    let isJoint (y,x) = maze ! (y,x) == '@'
+        posLocs = [(y,x) | y <- [0..height], x <- [0..width], isJoint (y,x)]
+    in foldr (\loc maze -> simplifySymbol loc maze) maze posLocs
+
+simplifySymbol :: Location
+               -> Grid
+               -> Grid
+simplifySymbol (sY,sX) maze =
+    let up = isValidNeighbor ((sY-1), sX)
+        down = isValidNeighbor ((sY+1), sX)
+        left = isValidNeighbor (sY, (sX+1))
+        right = isValidNeighbor (sY, (sX-1))
+        isValidNeighbor (y,x)
+          | y < 0                           = Nothing
+          | y > (fst . snd . bounds $ maze) = Nothing
+          | x < 0                           = Nothing
+          | x > (snd . snd . bounds $ maze) = Nothing
+          | maze ! (y,x) == ' '             = Nothing
+          | otherwise = Just $ maze ! (y,x)
+        validNeighbors = filter (isJust) $ up : down : left : right : []
+        setSymbol = editGrid (sY, sX) (fromJust . head $ validNeighbors) maze
+     in case length validNeighbors of
+        1    -> setSymbol
+        2    -> if isJust up && isJust down 
+                then setSymbol
+                else if isJust left && isJust right 
+                     then setSymbol
+                     else maze
+        _    -> maze
 
 -- | Pick random value from list. Return list sans value.
 pick :: [a] -> IO (a, [a])
@@ -92,9 +127,9 @@ unvisitedNeighbor (Cell (y,x) c) grid
         getCell g loc = Cell loc (grid ! loc)
               
 
--- | Get non-border walls of cell
+-- | Get non-border neighbors of cell
 getWalls :: Location   
-         -> [Cell] 
+             -> [Cell] 
 getWalls (y,x) = 
     let up    = if isBorder ((y-1),x) then [] else [(Cell ((y-1),x) '=')]
         down  = if isBorder ((y+1),x) then [] else [(Cell ((y+1),x) '=')]
@@ -108,6 +143,14 @@ isBorder :: Location  --to evaluate
          -> Bool
 isBorder (y,x) = y == 0 || y == height || x == 0 || x == width
 
+isCorner :: Location
+         -> Bool
+isCorner (y,x) 
+    | y == 0 && x == 0          = True
+    | y == height && x == 0     = True
+    | y == 0 && x == width      = True
+    | y == height && x == width = True 
+    | otherwise                 = False
 
 -- | Edit the given Grid
 editGrid :: Location
@@ -149,7 +192,7 @@ insertEvery cnt div ins (x:xs)
 -- | Get the symbol for a cell
 getSymbol :: Location -> Char
 getSymbol (y,x) 
-    | even y && even x = '+'
+    | even y && even x = '@'
     | even y && odd x  = '='
     | odd y && even x  = '|'
     | odd y && odd x   = '#'
