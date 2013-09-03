@@ -60,18 +60,19 @@ buildMaze grid walls =
                   let (maze, additionalWalls) = analyzeWall grid wall
                   buildMaze maze $ additionalWalls ++ newWalls
 
--- | Remove unnecessary joints '@'
+-- | Remove unnecessary joints '@' throughout maze
 simplifyMaze :: Grid
              -> Grid
 simplifyMaze maze = 
     let isJoint (y,x) = maze ! (y,x) == '@'
         posLocs = [(y,x) | y <- [0..height], x <- [0..width], isJoint (y,x)]
-    in foldr (\loc maze -> simplifySymbol loc maze) maze posLocs
+    in foldr (\loc maze -> simplifyJoints loc maze) maze posLocs
 
-simplifySymbol :: Location
+-- | Remove unnecessary joints '@'
+simplifyJoints :: Location
                -> Grid
                -> Grid
-simplifySymbol (sY,sX) maze =
+simplifyJoints (sY,sX) maze =
     let up = isValidNeighbor ((sY-1), sX)
         down = isValidNeighbor ((sY+1), sX)
         left = isValidNeighbor (sY, (sX+1))
@@ -143,15 +144,6 @@ isBorder :: Location  --to evaluate
          -> Bool
 isBorder (y,x) = y == 0 || y == height || x == 0 || x == width
 
-isCorner :: Location
-         -> Bool
-isCorner (y,x) 
-    | y == 0 && x == 0          = True
-    | y == height && x == 0     = True
-    | y == 0 && x == width      = True
-    | y == height && x == width = True 
-    | otherwise                 = False
-
 -- | Edit the given Grid
 editGrid :: Location
          -> Char
@@ -195,4 +187,4 @@ getSymbol (y,x)
     | even y && even x = '@'
     | even y && odd x  = '='
     | odd y && even x  = '|'
-    | odd y && odd x   = '#'
+    | odd y && odd x   = '#' --unvisited
